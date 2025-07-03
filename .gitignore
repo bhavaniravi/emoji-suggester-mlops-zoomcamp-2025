@@ -11,3 +11,6 @@ wheels/
 data/**/*.csv
 service_account.json
 oauth_json.json
+mlruns
+models
+.DS_Store

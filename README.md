@@ -1,48 +1,15 @@
 # Emoji Suggester - MLOps Zoomcamp Project
 
-Suggest emojis based on input text using a text classification model trained on tweets.
+## Problem Description
 
-## ✅ Project Checklist
+Ever seen those emoji's popping up right after you type something. Eg., 'Cool' and you keyboard would go 😎. I've always found that to be fascinating. Hence this project. An emoji predictor based off [hugging face emoji predictor dataset](https://www.kaggle.com/datasets/hariharasudhanas/twitter-emoji-prediction). 
 
-### 🔧 Project Setup
-- [x]  virtual environment
-- [ ] Requirements saved in 
-- [ ] Data folders created
+- Model - The distillBERT model is fine-tuned with the training data to do the prediction
+- Experiment Tracking - MLFlow
+- Workflow Orchestration - Airflow 3.0
+- Model Deployment - Dockerized
+- Model Monitoring - EvidentlyAI
 
-### 🧪 ML Pipeline
-- [ ] Data ingestion script
-- [ ] Data preprocessing
-- [ ] Model training (with MLflow logging)
-- [ ] Evaluation + metrics
-- [ ] Register model with MLflow
+## Setup Guide
 
-### 🔁 Orchestration (Airflow)
-- [ ] DAGs for preprocessing, training, and batch inference
-- [ ] DAG tested and running locally
 
-### 🚀 Model Serving
-- [ ] Streamlit UI to accept text and show predicted emoji(s)
-- [ ] Use registered model from MLflow
-
-### ⚙️ CI/CD (GitHub Actions)
-- [ ] Lint + test workflow
-- [ ] Docker build + push
-- [ ] Deploy Streamlit app
-
-### 🧪 Testing
-- [ ] Unit tests for components
-- [ ] Integration test (end-to-end DAG or script)
-- [ ] CLI/Makefile support
-
-### 📊 Monitoring
-- [ ] Use Evidently to track data drift
-- [ ] Setup Prometheus + Grafana to monitor API or pipeline
-- [ ] Log model inputs/outputs
-
-### 📄 Docs
-- [ ] Update README with clear setup instructions
-- [ ] Add model usage examples
-
----
-
-echo "✅ Project scaffolded. You're ready to build!"

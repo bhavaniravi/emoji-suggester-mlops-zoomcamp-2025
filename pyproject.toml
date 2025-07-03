@@ -5,18 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "apache-airflow>=3.0.1",
+    "datasets>=3.6.0",
     "dvc-gdrive>=3.0.1",
     "dvc[gs]>=3.60.1",
     "evidently>=0.7.8",
     "matplotlib>=3.10.3",
     "mlflow>=3.1.1",
     "numpy>=2.3.1",
-    "pandas>=2.3.0",
+    "ruff>=0.12.1",
     "scikit-learn>=1.7.0",
+    "setproctitle==1.2",
     "streamlit>=1.46.1",
     "torch>=2.7.1",
     "torchaudio>=2.7.1",
     "torchvision>=0.22.1",
-    "transformers>=4.53.0",
+    "transformers[torch]>=4.53.0",
 ]
