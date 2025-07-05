@@ -1,0 +1,8 @@
+.venv
+data
+logs
+mlruns
+models
+scripts
+localstack
+!data/raw
