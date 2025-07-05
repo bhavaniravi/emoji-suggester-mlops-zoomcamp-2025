@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "click>=8.2.1",
     "datasets>=3.6.0",
     "dvc-gdrive>=3.0.1",
     "dvc[gs]>=3.60.1",
@@ -13,11 +14,17 @@ dependencies = [
     "mlflow>=3.1.1",
     "numpy>=2.3.1",
     "ruff>=0.12.1",
+    "s3fs>=2025.3.0",
     "scikit-learn>=1.7.0",
-    "setproctitle==1.2",
     "streamlit>=1.46.1",
     "torch>=2.7.1",
     "torchaudio>=2.7.1",
     "torchvision>=0.22.1",
     "transformers[torch]>=4.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "awscli>=1.40.26",
+    "awscli-local>=0.22.0",
 ]
