@@ -1,55 +1,161 @@
-# src/modeling/bert_finetune.py
-
-import mlflow.transformers
-import pandas as pd
-from transformers import Trainer, TrainingArguments
-from datasets import Dataset
-from sklearn.metrics import accuracy_score
-from transformers import DistilBertTokenizerFast
-from transformers import TextClassificationPipeline
-from sklearn.metrics import f1_score
-from transformers import DistilBertForSequenceClassification
 import os
+import click
+import mlflow
+import mlflow.transformers
+from mlflow import MlflowClient
+from mlflow.server import get_app_client
+import logging
+logging.basicConfig(level=logging.INFO)
+
+import pandas as pd
+from datasets import Dataset
+from sklearn.metrics import accuracy_score, f1_score
+from transformers import (
+    DistilBertTokenizerFast,
+    DistilBertForSequenceClassification,
+    Trainer,
+    TrainingArguments,
+    TextClassificationPipeline,
+)
+logging.info ("loading tokenizer")
+tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
+logging.info ("loading complete")
+
+def _storage_opts(source, endpoint):
+    if source == "s3":
+        return {}
+    elif source == "localstack":
+        return {
+            "key": "test",
+            "secret": "test",
+            "client_kwargs": {"endpoint_url": endpoint},
+        }
+    return None
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-import mlflow
 
-mlflow.set_experiment("emoji-suggester-bert")
-tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
+columns = {"TEXT": "text", "Label": "label", "id": "id"}
 
-
-def read_data(path):
-    df = pd.read_csv(path)
-    return df
-
-
-def preprocess_data(df):
+@click.command()
+@click.option("--tracking-uri", default="http://127.0.0.1:5002", help="MLflow tracking URI")
+@click.option("--experiment", default="emoji-suggester-bert", help="MLflow experiment name")
+@click.option("--output-dir", default="models/bert_output", help="Output directory")
+@click.option("--device", default="cpu", type=click.Choice(["cpu", "cuda", "mps"]), help="Device to train on")
+@click.option("--checkpoint-uri", default=None, help="Resume from checkpoint if available")
+@click.option(
+    "--source",
+    type=click.Choice(["local", "s3", "localstack"]),
+    default="local",
+    help="Data source: local, s3, or localstack",
+)
+@click.option("--endpoint", default="http://localhost:4566", help="Data prefix path")
+@click.option("--bucket", default="emoji-predictor-bucket", help="S3 bucket name")
+@click.option("--prefix", default="data/processed", help="Data prefix path")
+@click.option("--data-path", default="train.csv", help="Training data CSV")
+def train(tracking_uri, experiment, output_dir, device, checkpoint_uri, endpoint, source, bucket, prefix, data_path):
+    
+    # Decide base path
+    if source == "local":
+        base = prefix
+    elif source == "s3":
+        base = f"s3://{bucket}/{prefix}"
+    elif source == "localstack":
+        base = f"s3://{bucket}/{prefix}"
+    logging.info(
+        f"base path ={base}" 
+    )
+    storage_options = _storage_opts(source, endpoint)
+    logging.info ("reading data")
+    df = pd.read_csv(f"{base}/{data_path}", nrows=100,  storage_options=storage_options)
     df["label"].value_counts(normalize=True)
-    return df
+    num_labels = df["label"].nunique()
+    logging.info(f"✅ Number of labels in dataset: {num_labels}")
 
+    logging.info(f"setting tracking uri {tracking_uri}")
+    mlflow.set_tracking_uri(tracking_uri)
+    logging.info(mlflow.get_tracking_uri())
+    logging.info("getting experiment")
+    mlflow.set_experiment(experiment)
 
-def label_to_emoji(label, mapping=None):
-    if not mapping:
-        path = "data/raw/Mapping.csv"
-        mapping = pd.read_csv(path)
-    mapping = read_data(mapping)
-    num = int(label.split("_")[1])
-    return mapping[mapping["number"] == num]["emoticons"]
+    logging.info("loading tokeinzer")
+    
+    ds = tokenize(df)
+
+    with mlflow.start_run():
+        model = DistilBertForSequenceClassification.from_pretrained(
+            "distilbert-base-uncased", num_labels=num_labels
+        )
+        model.gradient_checkpointing_enable()
+        logging.info(f"output dir {output_dir}")
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            save_strategy="steps",
+            save_steps=1000,
+            save_total_limit=1,
+            eval_strategy="steps",
+            eval_steps=1000,
+            load_best_model_at_end=True,
+            metric_for_best_model="eval_loss",
+            greater_is_better=False,
+            learning_rate=1e-4,
+            warmup_steps=500,
+            weight_decay=0.01,
+            logging_steps=100,
+            max_grad_norm=1.0,
+            num_train_epochs=10,
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=ds["train"],
+            eval_dataset=ds["test"],
+            compute_metrics=compute_metrics,
+        )
+
+        pipe = TextClassificationPipeline(
+            model=model, tokenizer=tokenizer, top_k=1, task="text-classification"
+        )
+        logging.info (f"training starts, {device} {checkpoint_uri}")
+        trainer.model.to(device)
+        trainer.train(resume_from_checkpoint=checkpoint_uri if checkpoint_uri else False)
+        logging.info ("training complete")
+        model.save_pretrained(f"{output_dir}/model")
+        tokenizer.save_pretrained(f"{output_dir}/tokenizer")
+
+        preds_output = trainer.predict(ds["test"])
+        preds = preds_output.predictions.argmax(axis=1)
+        labels = preds_output.label_ids
+        acc = accuracy_score(labels, preds)
+        logging.info(f"✅ Accuracy: {acc:.4f}")
+
+        mlflow.log_param("model", "bert-base-uncased")
+        mlflow.log_param("num_labels", num_labels)
+        mlflow.log_param("epochs", training_args.num_train_epochs)
+        mlflow.log_param("device", device)
+        mlflow.log_metric("accuracy", acc)
+
+        mlflow.transformers.log_model(
+            transformers_model=pipe,
+            name="emoji-distilbert-pipeline",
+            input_example="I'm so excited today",
+        )
+        mlflow.log_artifacts(f"{output_dir}/tokenizer", artifact_path="tokenizer")
+
+    logging.info("🎉 Training complete and logged to MLflow.")
 
 
 def tokenize_batch(batch):
-    return tokenizer(
-        batch["text"], truncation=True, padding="max_length", max_length=128
-    )
+    return tokenizer(batch["text"], truncation=True, padding="max_length", max_length=128)
 
 
 def tokenize(df):
     if "text" not in df.columns or "label" not in df.columns:
-        raise Exception("Wrong data format")
+        raise Exception("Wrong data format: needs columns ['text', 'label']")
     ds = Dataset.from_pandas(df[["text", "label"]])
     ds = ds.map(tokenize_batch)
-    ds = ds.train_test_split(test_size=0.2)
+    return ds.train_test_split(test_size=0.2)
 
 
 def compute_metrics(eval_pred):
@@ -61,74 +167,5 @@ def compute_metrics(eval_pred):
     }
 
 
-def train():
-    df = read_data("data/processed/train.csv")
-    df = preprocess_data(df)
-    num_labels = df["label"].nunique()
-    print("number of labels in dataset =", num_labels)
-    ds = tokenize(df)
-
-    with mlflow.start_run():
-        model = DistilBertForSequenceClassification.from_pretrained(
-            "distilbert-base-uncased", num_labels=num_labels
-        )
-        model.gradient_checkpointing_enable()
-
-        # Training config
-        training_args = TrainingArguments(
-            output_dir="models/bert_output",  # where to save
-            save_strategy="steps",  # or "epoch"
-            save_steps=1000,  # 👈 how often to save
-            save_total_limit=1,  # keep only 2 most recent
-            eval_strategy="steps",  # optional, helps with best model logic
-            eval_steps=1000,  # match save_steps if you want
-            load_best_model_at_end=True,
-            metric_for_best_model="eval_loss",
-            greater_is_better=False,
-            learning_rate=1e-4,
-            warmup_steps=500,
-            weight_decay=0.01,
-            logging_steps=100,
-            max_grad_norm=1.0,
-            num_train_epochs=10,
-        )
-        # Trainer
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=ds["train"],
-            eval_dataset=ds["test"],
-            compute_metrics=compute_metrics,
-        )
-        pipe = TextClassificationPipeline(
-            model=model,
-            tokenizer=tokenizer,
-            return_all_scores=False,
-            task="text-classification",
-        )
-        trainer.model.to("mps")
-        trainer.train(resume_from_checkpoint=True)
-
-        # Save model and encoder
-        model.save_pretrained("models/bert_output/model")
-
-        tokenizer.save_pretrained("models/bert_output/tokenizer")
-
-        # Get predictions on eval set
-        preds_output = trainer.predict(ds["test"])
-        preds = preds_output.predictions.argmax(axis=1)
-        labels = preds_output.label_ids
-
-        acc = accuracy_score(labels, preds)
-        print(f"Accuracy: {acc:.4f}")
-
-        mlflow.log_param("model", "bert-base-uncased")
-        mlflow.log_param("num_labels", num_labels)
-        mlflow.log_param("epochs", training_args.num_train_epochs)
-        mlflow.log_metric("accuracy", acc)
-        mlflow.transformers.log_model(
-            transformers_model=pipe,
-            name="emoji-distilbert-pipeline",
-            input_example="I'm so excited today",
-        )
-        mlflow.log_artifacts("models/bert_output/tokenizer", artifact_path="tokenizer")
+if __name__ == "__main__":
+    train()
