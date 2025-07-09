@@ -1,0 +1,15 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: models
+        containerPath: /mnt/models
+      - hostPath: mlruns
+        containerPath: /mnt/mlruns
+  - role: worker
+    extraMounts:
+      - hostPath: models
+        containerPath: /mnt/models
+      - hostPath: mlruns
+        containerPath: /mnt/mlruns

@@ -12,7 +12,7 @@ class S3EventTrigger(S3KeyTrigger, BaseEventTrigger):
     pass
 
 trigger = S3EventTrigger(
-    "emoji-predictor-bucket", f"{base_path}/data/raw/Train*.csv", wildcard_match=True, aws_conn_id='localstack-s3'
+    bucket_name="emoji-predictor-bucket", bucket_key="data/raw/Train*.csv", wildcard_match=True, aws_conn_id='localstack-s3'
 )
 raw_asset = Asset(
     "raw-emoji-data", watchers=[AssetWatcher(name="raw_data_watcher", trigger=trigger)]
@@ -29,7 +29,10 @@ with DAG(
     preprocess_data = KubernetesPodOperator(
         name="preprocess_data",
         image="emoji-extractor:0.0.1", # Do not use :latest and IfNotPresent together
-        cmds=["uv", "run", "python", "./src/preprocess/data_cleanup.py", "--source", "localstack"],
+        cmds=["uv", "run", "python", "./src/preprocess/data_cleanup.py", 
+              "--source", "localstack", 
+              "--endpoint", "http://host.docker.internal:4566"
+              ],
         task_id="preprocess_data",
         outlets=[Asset(f"{base_path}/data/preprocessed/train.csv"), Asset(f"{base_path}/data/preprocessed/test.csv"), Asset(f"{base_path}/data/preprocessed/mapping.csv")],
         do_xcom_push=True,
