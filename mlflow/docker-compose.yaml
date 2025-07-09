@@ -1,0 +1,21 @@
+networks:
+  kind-net:
+    external: true
+
+services:
+  mlflow:
+    container_name: mlflow
+    image: ghcr.io/mlflow/mlflow
+    ports:
+      - "5002:5000"            
+    volumes:
+      - ../mlruns:/mlruns
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - kind-net
+    command: >
+          mlflow server
+          --host 0.0.0.0
+          --port 5000
+          --default-artifact-root /mlruns
+    working_dir: /
