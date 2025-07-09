@@ -8,7 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
-data/**/*.csv
+data/*
+!data/raw/
 service_account.json
 oauth_json.json
 mlruns
