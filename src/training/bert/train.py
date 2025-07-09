@@ -2,10 +2,7 @@ import os
 import click
 import mlflow
 import mlflow.transformers
-from mlflow import MlflowClient
-from mlflow.server import get_app_client
 import logging
-logging.basicConfig(level=logging.INFO)
 
 import pandas as pd
 from datasets import Dataset
@@ -17,9 +14,12 @@ from transformers import (
     TrainingArguments,
     TextClassificationPipeline,
 )
-logging.info ("loading tokenizer")
+
+logging.basicConfig(level=logging.INFO)
+logging.info("loading tokenizer")
 tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
-logging.info ("loading complete")
+logging.info("loading complete")
+
 
 def _storage_opts(source, endpoint):
     if source == "s3":
@@ -32,17 +32,30 @@ def _storage_opts(source, endpoint):
         }
     return None
 
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 columns = {"TEXT": "text", "Label": "label", "id": "id"}
 
+
 @click.command()
-@click.option("--tracking-uri", default="http://127.0.0.1:5002", help="MLflow tracking URI")
-@click.option("--experiment", default="emoji-suggester-bert", help="MLflow experiment name")
+@click.option(
+    "--tracking-uri", default="http://127.0.0.1:5002", help="MLflow tracking URI"
+)
+@click.option(
+    "--experiment", default="emoji-suggester-bert", help="MLflow experiment name"
+)
 @click.option("--output-dir", default="models/bert_output", help="Output directory")
-@click.option("--device", default="cpu", type=click.Choice(["cpu", "cuda", "mps"]), help="Device to train on")
-@click.option("--checkpoint-uri", default=None, help="Resume from checkpoint if available")
+@click.option(
+    "--device",
+    default="cpu",
+    type=click.Choice(["cpu", "cuda", "mps"]),
+    help="Device to train on",
+)
+@click.option(
+    "--checkpoint-uri", default=None, help="Resume from checkpoint if available"
+)
 @click.option(
     "--source",
     type=click.Choice(["local", "s3", "localstack"]),
@@ -53,8 +66,18 @@ columns = {"TEXT": "text", "Label": "label", "id": "id"}
 @click.option("--bucket", default="emoji-predictor-bucket", help="S3 bucket name")
 @click.option("--prefix", default="data/processed", help="Data prefix path")
 @click.option("--data-path", default="train.csv", help="Training data CSV")
-def train(tracking_uri, experiment, output_dir, device, checkpoint_uri, endpoint, source, bucket, prefix, data_path):
-    
+def train(
+    tracking_uri,
+    experiment,
+    output_dir,
+    device,
+    checkpoint_uri,
+    endpoint,
+    source,
+    bucket,
+    prefix,
+    data_path,
+):
     # Decide base path
     if source == "local":
         base = prefix
@@ -62,12 +85,10 @@ def train(tracking_uri, experiment, output_dir, device, checkpoint_uri, endpoint
         base = f"s3://{bucket}/{prefix}"
     elif source == "localstack":
         base = f"s3://{bucket}/{prefix}"
-    logging.info(
-        f"base path ={base}" 
-    )
+    logging.info(f"base path ={base}")
     storage_options = _storage_opts(source, endpoint)
-    logging.info ("reading data")
-    df = pd.read_csv(f"{base}/{data_path}", nrows=100,  storage_options=storage_options)
+    logging.info("reading data")
+    df = pd.read_csv(f"{base}/{data_path}", nrows=100, storage_options=storage_options)
     df["label"].value_counts(normalize=True)
     num_labels = df["label"].nunique()
     logging.info(f"✅ Number of labels in dataset: {num_labels}")
@@ -79,7 +100,7 @@ def train(tracking_uri, experiment, output_dir, device, checkpoint_uri, endpoint
     mlflow.set_experiment(experiment)
 
     logging.info("loading tokeinzer")
-    
+
     ds = tokenize(df)
 
     with mlflow.start_run():
@@ -117,10 +138,12 @@ def train(tracking_uri, experiment, output_dir, device, checkpoint_uri, endpoint
         pipe = TextClassificationPipeline(
             model=model, tokenizer=tokenizer, top_k=1, task="text-classification"
         )
-        logging.info (f"training starts, {device} {checkpoint_uri}")
+        logging.info(f"training starts, {device} {checkpoint_uri}")
         trainer.model.to(device)
-        trainer.train(resume_from_checkpoint=checkpoint_uri if checkpoint_uri else False)
-        logging.info ("training complete")
+        trainer.train(
+            resume_from_checkpoint=checkpoint_uri if checkpoint_uri else False
+        )
+        logging.info("training complete")
         model.save_pretrained(f"{output_dir}/model")
         tokenizer.save_pretrained(f"{output_dir}/tokenizer")
 
@@ -147,7 +170,9 @@ def train(tracking_uri, experiment, output_dir, device, checkpoint_uri, endpoint
 
 
 def tokenize_batch(batch):
-    return tokenizer(batch["text"], truncation=True, padding="max_length", max_length=128)
+    return tokenizer(
+        batch["text"], truncation=True, padding="max_length", max_length=128
+    )
 
 
 def tokenize(df):

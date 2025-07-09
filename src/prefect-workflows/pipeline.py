@@ -7,8 +7,7 @@ import subprocess
 
 # Setup logging format and level
 logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
 os.environ["AWS_ACCESS_KEY_ID"] = "test"
@@ -21,6 +20,7 @@ PREPROCESSED_PREFIX = "data/preprocessed/"
 STATE_PREPROCESS = "tracking/last_preprocessed.json"
 STATE_TRAIN = "tracking/last_trained.json"
 LOCALSTACK_ENDPOINT = "http://localhost:4566"
+TRACKING_URI = "http://localhost:5002"
 
 s3 = boto3.client("s3", endpoint_url=LOCALSTACK_ENDPOINT)
 
@@ -51,16 +51,24 @@ def update_state(key: str, version: str):
 
 @task
 def find_complete_dataset(last_version):
-    logging.info(f"Listing raw dataset files from S3 bucket '{S3_BUCKET}' with prefix '{RAW_PREFIX}'")
+    logging.info(
+        f"Listing raw dataset files from S3 bucket '{S3_BUCKET}' with prefix '{RAW_PREFIX}'"
+    )
     response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=RAW_PREFIX)
-    files = [obj["Key"] for obj in response.get("Contents", []) if obj["Key"].endswith(".csv")]
+    files = [
+        obj["Key"]
+        for obj in response.get("Contents", [])
+        if obj["Key"].endswith(".csv")
+    ]
     logging.info(f"Found {len(files)} raw CSV files.")
 
     import re
 
     train_files = [f for f in files if re.match(rf"{RAW_PREFIX}Train(_.*)?\.csv", f)]
     test_files = [f for f in files if re.match(rf"{RAW_PREFIX}Test(_.*)?\.csv", f)]
-    mapping_files = [f for f in files if re.match(rf"{RAW_PREFIX}Mapping(_.*)?\.csv", f)]
+    mapping_files = [
+        f for f in files if re.match(rf"{RAW_PREFIX}Mapping(_.*)?\.csv", f)
+    ]
 
     logging.info(f"Train files: {train_files}")
     logging.info(f"Test files: {test_files}")
@@ -94,9 +102,14 @@ def find_complete_dataset(last_version):
 @task
 def preprocess_data():
     command = [
-        "uv", "run", "python", "./src/preprocess/data_cleanup.py",
-        "--source", "localstack",
-        "--endpoint", LOCALSTACK_ENDPOINT
+        "uv",
+        "run",
+        "python",
+        "./src/preprocess/data_cleanup.py",
+        "--source",
+        "localstack",
+        "--endpoint",
+        LOCALSTACK_ENDPOINT,
     ]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -108,13 +121,22 @@ def preprocess_data():
 @task
 def train_model():
     command = [
-        "uv", "run", "python", "./src/training/bert/train.py",
-        "--source", "localstack",
-        "--bucket", "emoji-predictor-bucket",
-        "--endpoint", "http://localhost:4566",
-        "--tracking-uri", "http://localhost:5002",
-        "--output-dir", "models/bert_output/",
-        "--checkpoint-uri", "models/bert_output/checkpoint-69000",
+        "uv",
+        "run",
+        "python",
+        "./src/training/bert/train.py",
+        "--source",
+        "localstack",
+        "--bucket",
+        "emoji-predictor-bucket",
+        "--endpoint",
+        LOCALSTACK_ENDPOINT
+        "--tracking-uri",
+        TRACKING_URI,
+        "--output-dir",
+        "models/bert_output/",
+        "--checkpoint-uri",
+        "models/bert_output/checkpoint-69000",
     ]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -132,13 +154,18 @@ def move_files_to_archive(files):
     for file_key in files:
         archive_key = file_key.replace(RAW_PREFIX, ARCHIVE_PREFIX)
         logging.info(f"Copying {file_key} to {archive_key}")
-        s3.copy_object(Bucket=S3_BUCKET, CopySource={'Bucket': S3_BUCKET, 'Key': file_key}, Key=archive_key)
+        s3.copy_object(
+            Bucket=S3_BUCKET,
+            CopySource={"Bucket": S3_BUCKET, "Key": file_key},
+            Key=archive_key,
+        )
         s3.delete_object(Bucket=S3_BUCKET, Key=file_key)
         logging.info(f"Moved {file_key} to {archive_key}")
         print(f"[move_files_to_archive] Moved {file_key} to {archive_key}")
 
 
 # ===== PIPELINE 1: Preprocessing =====
+
 
 @flow(name="preprocessing-pipeline")
 def preprocessing_pipeline():
@@ -147,13 +174,21 @@ def preprocessing_pipeline():
     last_preprocessed_version = get_state(STATE_PREPROCESS)
     version, files = find_complete_dataset(last_preprocessed_version)
 
-    if version and (last_preprocessed_version is None or version > last_preprocessed_version):
-        logging.info(f"New raw data version {version} detected; beginning preprocessing.")
-        print(f"[preprocessing_pipeline] New version detected: {version}, files: {files}")
+    if version and (
+        last_preprocessed_version is None or version > last_preprocessed_version
+    ):
+        logging.info(
+            f"New raw data version {version} detected; beginning preprocessing."
+        )
+        print(
+            f"[preprocessing_pipeline] New version detected: {version}, files: {files}"
+        )
         preprocess_data()
         update_state(STATE_PREPROCESS, version)
         logging.info("Preprocessing done, triggering training pipeline.")
-        print("[preprocessing_pipeline] Preprocessing complete, triggering training pipeline.")
+        print(
+            "[preprocessing_pipeline] Preprocessing complete, triggering training pipeline."
+        )
         training_pipeline()
     else:
         logging.info("No new raw data to preprocess.")
@@ -161,6 +196,7 @@ def preprocessing_pipeline():
 
 
 # ===== PIPELINE 2: Training =====
+
 
 @flow(name="training-pipeline")
 def training_pipeline():
@@ -175,7 +211,9 @@ def training_pipeline():
     print(f"[training_pipeline] Last trained version: {last_trained_version}")
 
     # Only train if preprocessing done & training not done yet
-    if last_preprocessed_version and (last_trained_version is None or last_preprocessed_version > last_trained_version):
+    if last_preprocessed_version and (
+        last_trained_version is None or last_preprocessed_version > last_trained_version
+    ):
         logging.info("Conditions met for training. Starting training...")
         print("[training_pipeline] Training conditions met, training model...")
         train_model()

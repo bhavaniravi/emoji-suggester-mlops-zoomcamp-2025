@@ -1,8 +1,8 @@
 import pandas as pd
 import click
-import os
 
 columns = {"TEXT": "text", "Label": "label", "id": "id"}
+
 
 def _storage_opts(source, endpoint):
     if source == "s3":
@@ -14,6 +14,7 @@ def _storage_opts(source, endpoint):
             "client_kwargs": {"endpoint_url": endpoint},
         }
     return None
+
 
 @click.command()
 @click.option(
@@ -37,8 +38,12 @@ def main(source, bucket, prefix, endpoint):
     # Read data
     storage_options = _storage_opts(source, endpoint)
     emoji_mapping = pd.read_csv(f"{base}/Mapping.csv", storage_options=storage_options)
-    train_data = pd.read_csv(f"{base}/Train.csv", usecols=["TEXT", "Label"], storage_options=storage_options)
-    test_data = pd.read_csv(f"{base}/Test.csv", usecols=["TEXT", "id"], storage_options=storage_options)
+    train_data = pd.read_csv(
+        f"{base}/Train.csv", usecols=["TEXT", "Label"], storage_options=storage_options
+    )
+    test_data = pd.read_csv(
+        f"{base}/Test.csv", usecols=["TEXT", "id"], storage_options=storage_options
+    )
 
     # Ensure all labels are in mappings
     emojis = emoji_mapping["number"]
@@ -49,15 +54,29 @@ def main(source, bucket, prefix, endpoint):
     test_data_clean = clean_data(test_data)
 
     # Write
-    output_prefix = "data/processed" if source == "local" else f"s3://{bucket}/data/processed"
-    train_data_clean.to_csv(f"{output_prefix}/train.csv", index=False, header=True, storage_options=storage_options)
-    test_data_clean.to_csv(f"{output_prefix}/test.csv", index=False, header=True, storage_options=storage_options)
-    emoji_mapping.to_csv(f"{output_prefix}/mapping.csv", index=False, header=True, storage_options=storage_options)
+    output_prefix = (
+        "data/processed" if source == "local" else f"s3://{bucket}/data/processed"
+    )
+    train_data_clean.to_csv(
+        f"{output_prefix}/train.csv",
+        index=False,
+        header=True,
+        storage_options=storage_options,
+    )
+    test_data_clean.to_csv(
+        f"{output_prefix}/test.csv",
+        index=False,
+        header=True,
+        storage_options=storage_options,
+    )
+    emoji_mapping.to_csv(
+        f"{output_prefix}/mapping.csv",
+        index=False,
+        header=True,
+        storage_options=storage_options,
+    )
 
     print("✅ Done.")
-
-
-
 
 
 def clean_data(df):
