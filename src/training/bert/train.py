@@ -88,7 +88,7 @@ def train(
     logging.info(f"base path ={base}")
     storage_options = _storage_opts(source, endpoint)
     logging.info("reading data")
-    df = pd.read_csv(f"{base}/{data_path}", nrows=100, storage_options=storage_options)
+    df = pd.read_csv(f"{base}/{data_path}", storage_options=storage_options)
     df["label"].value_counts(normalize=True)
     num_labels = df["label"].nunique()
     logging.info(f"✅ Number of labels in dataset: {num_labels}")
