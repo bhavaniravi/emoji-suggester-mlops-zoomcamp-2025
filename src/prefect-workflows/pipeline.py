@@ -27,16 +27,16 @@ s3 = boto3.client("s3", endpoint_url=LOCALSTACK_ENDPOINT)
 
 @task
 def get_state(key: str):
-    logging.info(f"Fetching state for key: {key}")
+    print(f"Fetching state for key: {key}")
     try:
         obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
         state = json.loads(obj["Body"].read())
         version = state.get("version")
-        logging.info(f"State found for {key}: version={version}")
+        print(f"State found for {key}: version={version}")
         print(f"[get_state] Found version: {version} for key: {key}")
         return version
     except s3.exceptions.NoSuchKey:
-        logging.info(f"No state found at {key}")
+        print(f"No state found at {key}")
         print(f"[get_state] No state found at {key}")
         return None
 
@@ -44,14 +44,14 @@ def get_state(key: str):
 @task
 def update_state(key: str, version: str):
     data = {"version": version}
-    logging.info(f"Updating state at {key} to version {version}")
+    print(f"Updating state at {key} to version {version}")
     s3.put_object(Bucket=S3_BUCKET, Key=key, Body=json.dumps(data))
     print(f"[update_state] Updated state {key} to version {version}")
 
 
 @task
 def find_complete_dataset(last_version):
-    logging.info(
+    print(
         f"Listing raw dataset files from S3 bucket '{S3_BUCKET}' with prefix '{RAW_PREFIX}'"
     )
     response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=RAW_PREFIX)
@@ -60,7 +60,7 @@ def find_complete_dataset(last_version):
         for obj in response.get("Contents", [])
         if obj["Key"].endswith(".csv")
     ]
-    logging.info(f"Found {len(files)} raw CSV files.")
+    print(f"Found {len(files)} raw CSV files.")
 
     import re
 
@@ -70,12 +70,12 @@ def find_complete_dataset(last_version):
         f for f in files if re.match(rf"{RAW_PREFIX}Mapping(_.*)?\.csv", f)
     ]
 
-    logging.info(f"Train files: {train_files}")
-    logging.info(f"Test files: {test_files}")
-    logging.info(f"Mapping files: {mapping_files}")
+    print(f"Train files: {train_files}")
+    print(f"Test files: {test_files}")
+    print(f"Mapping files: {mapping_files}")
 
     if not (train_files and test_files and mapping_files):
-        logging.info("Incomplete dataset in raw folder.")
+        print("Incomplete dataset in raw folder.")
         print("[find_complete_dataset] Dataset incomplete, returning None")
         return None, []
 
@@ -86,15 +86,15 @@ def find_complete_dataset(last_version):
     file_set = sorted([latest_train, latest_test, latest_mapping])
     version = "_".join(file_set)
 
-    logging.info(f"Latest dataset files: {file_set}")
-    logging.info(f"Computed dataset version: {version}")
+    print(f"Latest dataset files: {file_set}")
+    print(f"Computed dataset version: {version}")
 
     if last_version is None or version > last_version:
-        logging.info(f"New dataset version found: {version} (previous: {last_version})")
+        print(f"New dataset version found: {version} (previous: {last_version})")
         print(f"[find_complete_dataset] New dataset version: {version}")
         return version, file_set
 
-    logging.info("No new dataset version found.")
+    print("No new dataset version found.")
     print("[find_complete_dataset] No new dataset version found")
     return None, []
 
@@ -115,7 +115,7 @@ def preprocess_data():
     if result.returncode != 0:
         logging.error(f"Script failed: {result.stderr}")
         raise RuntimeError("Preprocessing failed")
-    logging.info(f"Preprocessing output: {result.stdout}")
+    print(f"Preprocessing output: {result.stdout}")
 
 
 @task
@@ -130,112 +130,91 @@ def train_model():
         "--bucket",
         "emoji-predictor-bucket",
         "--endpoint",
-        LOCALSTACK_ENDPOINT
+        LOCALSTACK_ENDPOINT,
         "--tracking-uri",
         TRACKING_URI,
         "--output-dir",
         "models/bert_output/",
-        "--checkpoint-uri",
-        "models/bert_output/checkpoint-69000",
+        # "--checkpoint-uri",
+        # "models/bert_output/checkpoint-69000",
     ]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         logging.error(f"Training failed: {result.stderr}")
-        raise RuntimeError("Training failed")
-    logging.info(result.stdout)
+        raise RuntimeError(f"Training failed=={result.stderr}")
+    print(result.stdout)
 
-    logging.info("Model training completed.")
+    print("Model training completed.")
 
 
 @task
 def move_files_to_archive(files):
-    logging.info(f"Moving files to archive: {files}")
     print(f"[move_files_to_archive] Moving files: {files}")
     for file_key in files:
         archive_key = file_key.replace(RAW_PREFIX, ARCHIVE_PREFIX)
-        logging.info(f"Copying {file_key} to {archive_key}")
+        print(f"Copying {file_key} to {archive_key}")
         s3.copy_object(
             Bucket=S3_BUCKET,
             CopySource={"Bucket": S3_BUCKET, "Key": file_key},
             Key=archive_key,
         )
         s3.delete_object(Bucket=S3_BUCKET, Key=file_key)
-        logging.info(f"Moved {file_key} to {archive_key}")
         print(f"[move_files_to_archive] Moved {file_key} to {archive_key}")
 
 
 # ===== PIPELINE 1: Preprocessing =====
 
 
-@flow(name="preprocessing-pipeline")
+@flow(name="preprocessing-pipeline", log_prints=True)
 def preprocessing_pipeline():
-    logging.info("=== Starting Preprocessing Pipeline ===")
-    print("\n=== Starting Preprocessing Pipeline ===")
+    print("=== Starting Preprocessing Pipeline ===")
     last_preprocessed_version = get_state(STATE_PREPROCESS)
     version, files = find_complete_dataset(last_preprocessed_version)
 
     if version and (
         last_preprocessed_version is None or version > last_preprocessed_version
     ):
-        logging.info(
-            f"New raw data version {version} detected; beginning preprocessing."
-        )
-        print(
-            f"[preprocessing_pipeline] New version detected: {version}, files: {files}"
-        )
+        print(f"New raw data version {version} detected; beginning preprocessing.")
         preprocess_data()
         update_state(STATE_PREPROCESS, version)
-        logging.info("Preprocessing done, triggering training pipeline.")
-        print(
-            "[preprocessing_pipeline] Preprocessing complete, triggering training pipeline."
-        )
-        training_pipeline()
+        print("Preprocessing done, triggering training pipeline.")
     else:
-        logging.info("No new raw data to preprocess.")
-        print("[preprocessing_pipeline] No new raw data to preprocess.")
+        print("No new raw data to preprocess.")
+
+    training_pipeline()
 
 
 # ===== PIPELINE 2: Training =====
 
 
-@flow(name="training-pipeline")
+@flow(name="training-pipeline", log_prints=True)
 def training_pipeline():
-    logging.info("=== Starting Training Pipeline ===")
-    print("\n=== Starting Training Pipeline ===")
+    print("=== Starting Training Pipeline ===")
     last_preprocessed_version = get_state(STATE_PREPROCESS)
     last_trained_version = get_state(STATE_TRAIN)
 
-    logging.info(f"Last preprocessed version: {last_preprocessed_version}")
-    logging.info(f"Last trained version: {last_trained_version}")
+    print(f"Last preprocessed version: {last_preprocessed_version}")
+    print(f"Last trained version: {last_trained_version}")
     print(f"[training_pipeline] Last preprocessed version: {last_preprocessed_version}")
-    print(f"[training_pipeline] Last trained version: {last_trained_version}")
 
     # Only train if preprocessing done & training not done yet
     if last_preprocessed_version and (
         last_trained_version is None or last_preprocessed_version > last_trained_version
     ):
-        logging.info("Conditions met for training. Starting training...")
-        print("[training_pipeline] Training conditions met, training model...")
+        print("Conditions met for training. Starting training...")
         train_model()
         update_state(STATE_TRAIN, last_preprocessed_version)
 
         # Archive raw files only after successful training
         _, files = find_complete_dataset(None)  # get latest files ignoring last_version
         if files:
-            logging.info("Archiving raw files after successful training.")
-            print("[training_pipeline] Archiving raw files...")
+            print("Archiving raw files after successful training.")
             move_files_to_archive(files)
         else:
-            logging.info("No raw files found to archive.")
-            print("[training_pipeline] No raw files to archive.")
+            print("No raw files found to archive.")
     else:
-        logging.info("No new data to train.")
-        print("[training_pipeline] No new data to train.")
+        print("No new data to train.")
 
 
 if __name__ == "__main__":
-    print("=== Running preprocessing pipeline ===")
     preprocessing_pipeline()
-
-    print("=== Running training pipeline ===")
-    training_pipeline()
