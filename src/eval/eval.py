@@ -1,40 +1,45 @@
 import pandas as pd
+import click
 from evidently import Dataset, DataDefinition, Report
 from evidently import MulticlassClassification
 from evidently.presets import DataSummaryPreset, DataDriftPreset, ClassificationQuality
 
-mdf1 = pd.read_csv("data/processed/mapping.csv")
-mdf2 = pd.read_csv("data/mock/mapping.csv")
-mdf = pd.concat([mdf1, mdf2], ignore_index=True)
+@click.command()
+@click.option('--mapping1', default="data/processed/mapping.csv", help='Path to first mapping CSV.')
+@click.option('--mapping2', default="data/mock/mapping.csv", help='Path to second mapping CSV.')
+@click.option('--pred1', default="data/predictions/bert_train.csv", help='Path to first predictions CSV.')
+@click.option('--pred2', default="data/predictions/bert_mock.csv", help='Path to second predictions CSV.')
+@click.option('--output', default="data/evidently/eval.html", help='Output HTML file for evaluation.')
+def main(mapping1, mapping2, pred1, pred2, output):
+    mdf1 = pd.read_csv(mapping1)
+    mdf2 = pd.read_csv(mapping2)
+    mdf = pd.concat([mdf1, mdf2], ignore_index=True)
 
-# Define the schema for your dataset
-schema = DataDefinition(
-    text_columns=["text"],
-    categorical_columns=["label", "predicted_label"],
-    classification=[
-        MulticlassClassification(
-            target="label",
-            prediction_labels="predicted_label",
-            labels=mdf.to_dict()["emoticons"],
-        )
-    ],
-)
+    schema = DataDefinition(
+        text_columns=["text"],
+        categorical_columns=["label", "predicted_label"],
+        classification=[
+            MulticlassClassification(
+                target="label",
+                prediction_labels="predicted_label",
+                labels=mdf.to_dict()["emoticons"],
+            )
+        ],
+    )
 
-# Load your datasets
-df1 = pd.read_csv("data/predictions/bert_train.csv")
-df2 = pd.read_csv("data/predictions/bert_mock.csv")
+    df1 = pd.read_csv(pred1)
+    df2 = pd.read_csv(pred2)
 
-# Create Dataset objects
-eval_data_1 = Dataset.from_pandas(df1, data_definition=schema)
-eval_data_2 = Dataset.from_pandas(df2, data_definition=schema)
+    eval_data_1 = Dataset.from_pandas(df1, data_definition=schema)
+    eval_data_2 = Dataset.from_pandas(df2, data_definition=schema)
 
-# Create a report with the desired metrics
-report = Report(
-    metrics=[DataSummaryPreset(), DataDriftPreset(), ClassificationQuality()]
-)
+    report = Report(
+        metrics=[DataSummaryPreset(), DataDriftPreset(), ClassificationQuality()]
+    )
 
-# Run the report
-my_eval = report.run(eval_data_1, eval_data_2)
+    my_eval = report.run(eval_data_1, eval_data_2)
+    my_eval.save_html(output)
+    print(f"Evaluation report saved to {output}")
 
-# Save the evaluation results to an HTML file
-my_eval.save_html("data/evidently/eval.html")
+if __name__ == "__main__":
+    main()

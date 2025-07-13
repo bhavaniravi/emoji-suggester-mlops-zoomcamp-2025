@@ -2,7 +2,12 @@
 
 ## Problem Description
 
-Ever seen those emoji's popping up right after you type something. Eg., 'Cool' and you keyboard would go 😎. I've always found that to be fascinating. Hence this project. An emoji predictor based off [hugging face emoji predictor dataset](https://www.kaggle.com/datasets/hariharasudhanas/twitter-emoji-prediction). 
+Ever seen those emoji's popping up right after you type something. Eg., 'Cool' and you keyboard would go 😎. I've always found that to be fascinating. 
+The goal of this project is to develop a machine learning model that can automatically predict and suggest the most contextually relevant emoji(s) based on the text input provided by a user. 
+Such a model would enhance user experience by streamlining communication, reducing typing effort, and ensuring emotional tone is accurately conveyed in digital conversations.
+An emoji predictor based off [hugging face emoji predictor dataset](https://www.kaggle.com/datasets/hariharasudhanas/twitter-emoji-prediction).
+
+## Tools and Models
 
 - Model - The distillBERT model is fine-tuned with the training data to do the prediction
 - Experiment Tracking - MLFlow
@@ -12,61 +17,34 @@ Ever seen those emoji's popping up right after you type something. Eg., 'Cool' a
 
 ## Setup Guide
 
-The project is split into two main folders
+## Requirements
 
-1. `src` - Where you will find all model related stuff
-2. `workflows` - where you will find airflow workflow related stuffs
+You would need `python>=3.12` and `uv` in your machine to run these pipelines
 
-We are separating these two because often Airflow dependencies conflict with other dependencies of the project, stopping us from using the latest version of certain libraries. To mitigate this, we are going to have two separate docker envs, one for workflow, one for the model
+1. [Install UV](https://docs.astral.sh/uv/getting-started/installation/)
 
-
-To connect kind cluster to docker network
-```
-docker network connect kind-net kind-control-plane
-```
+### Local setup
 
 ```
-awslocal s3api create-bucket --bucket emoji-predictor-bucket
+make init
 ```
 
-```
-awslocal s3api put-object \
-  --bucket emoji-predictor-bucket \
-  --key data/raw/Train.csv
+### Training the model
 
-awslocal s3api put-object \
-  --bucket emoji-predictor-bucket \
-  --key data/raw/Test.csv
+Training will take sometime, the pipeline will 
+1. Train the model
+2. Register the best model
+3. Run eval script using evidently
 
-awslocal s3api put-object \
-  --bucket emoji-predictor-bucket \
-  --key data/raw/Mapping.csv
-
-awslocal s3 cp data/raw/ s3://emoji-predictor-bucket/data/raw --recursive
+Before starting the pipeline we need prefect server running parall
 
 ```
-
-```
-docker buildx build --platform=linux/amd64 -t emoji-extractor:latest --cache-to type=inline . --cache-from type=inline .
-
-The last 2 hrs has been painful to get the kind cluster to pull the image. 
-Once that's fixed the script has to be updated
-
-```
-docker build -t emoji-extractor:0.0.1 .
-kind load docker-image emoji-extractor:0.0.1
+make run-workflow
 ```
 
+### Running the application
 
 ```
-# localstack setup
-awslocal s3api create-bucket --bucket emoji-predictor-bucket
-awslocal s3 cp data/raw/ s3://emoji-predictor-bucket/data/raw --recursive
-awslocal s3api delete-objects \
-  --bucket emoji-predictor-bucket \
-  --delete "$(awslocal s3api list-objects \
-      --bucket emoji-predictor-bucket \
-      --prefix data/processed/ \
-      --query='{Objects: Contents[].{Key: Key}}')"
-
+make build
+make run-app
 ```

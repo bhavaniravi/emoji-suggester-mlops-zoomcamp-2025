@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import subprocess
+import mlflow
+from mlflow.tracking import MlflowClient
 
 # Setup logging format and level
 logging.basicConfig(
@@ -162,6 +164,47 @@ def move_files_to_archive(files):
         print(f"[move_files_to_archive] Moved {file_key} to {archive_key}")
 
 
+@task
+def register_best_model():
+    """Register the best model found in MLflow."""
+    mlflow.set_tracking_uri(TRACKING_URI)
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name("emoji-suggester-bert")
+    from src.training.bert.utils import get_best_runs, get_best_model
+
+    runs = get_best_runs(client, experiment)
+    best_run, pipeline = get_best_model(client, experiment, runs)
+    model_uri = f"runs:/{best_run.info.run_id}/model"
+    model_name = "emoji-suggester-bert"
+    result = mlflow.register_model(model_uri=model_uri, name=model_name)
+    print(f"Registered model: {result.name}, version: {result.version}")
+
+
+@task
+def evaluate_registered_model():
+    """Evaluate the registered model by running eval.py script."""
+    eval_script = "./src/eval/eval.py"
+    command = [
+        "python",
+        eval_script,
+        "--mapping1",
+        "data/processed/mapping.csv",
+        "--mapping2",
+        "data/mock/mapping.csv",
+        "--pred1",
+        "data/predictions/bert_train.csv",
+        "--pred2",
+        "data/predictions/bert_mock.csv",
+        "--output",
+        "data/evidently/eval.html",
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        logging.error(f"Evaluation failed: {result.stderr}")
+        raise RuntimeError("Evaluation failed")
+    print(f"Evaluation output: {result.stdout}")
+
+
 # ===== PIPELINE 1: Preprocessing =====
 
 
@@ -212,6 +255,10 @@ def training_pipeline():
             move_files_to_archive(files)
         else:
             print("No raw files found to archive.")
+
+        # Register the best model and evaluate it
+        register_best_model()
+        evaluate_registered_model()
     else:
         print("No new data to train.")
 

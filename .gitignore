@@ -13,6 +13,8 @@ data/*
 service_account.json
 oauth_json.json
 mlruns
+!mlruns/704835182793890294/fb9785a2f0ad48a0b58969ba82090192
+!mlruns/704835182793890294/models/m-1aeef91c242d45f58c23fd3617c12636
 models
 .DS_Store
 .env*

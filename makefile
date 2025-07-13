@@ -7,18 +7,19 @@ lint:
 format:
 	uv run ruff format
 
-local-setup:
+init:
 	uv venv
 	uv sync
 	# moving data to s3
 	cd mlflow && docker-compose up -d && cd ..
 	cd localstack && docker-compose up -d && cd ..
+	uv run awslocal s3api create-bucket --bucket emoji-predictor-bucket
 	uv run awslocal s3 cp data/raw/ s3://emoji-predictor-bucket/data/raw --recursive
 
 run-prefect:
 	uv run prefect server start
 
-run-workflow:
+train:
 	make reset-workflow
 	uv run python src/prefect-workflows/pipeline.py
 
