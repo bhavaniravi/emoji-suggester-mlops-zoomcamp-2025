@@ -5,10 +5,11 @@ from src.training.bert.utils import get_best_model, get_best_runs, label_to_emoj
 client = MlflowClient()
 experiment = client.get_experiment_by_name("emoji-suggester-bert")
 runs = get_best_runs(client, experiment)
-best_run_id, pipeline = get_best_model(client, experiment, runs)
+
 
 
 def predict(text):
+    best_run_id, pipeline = get_best_model(client, experiment, runs)
     result = pipeline(text)[0]
     label = result["label"]
     score = result["score"]

@@ -20,7 +20,7 @@ def get_best_model(client, experiment, runs, max=1):
             experiment_ids=[run.info.experiment_id],
             filter_string="attributes.status = 'READY'",
             order_by = [{"field_name": "metrics.accuracy", "ascending": False}],
-            max_results=1,
+            max_results=max,
         )
         if model:
             model = model[0]
@@ -36,12 +36,12 @@ def get_best_model(client, experiment, runs, max=1):
 mapping = None
 
 @lru_cache(maxsize=None)
-def label_to_emoji(label):
+def label_to_emoji(label) -> tuple:
     if label.startswith('LABEL_'):
         label = int(label.split('_')[1]) 
     global mapping
     if mapping is None:
-        mapping = pd.read_csv('data/processed/mapping.csv')
+        mapping = pd.read_csv('data/raw/Mapping.csv')
     row = mapping[mapping['number'] == label]
     if not row.empty:
         emoji = row.iloc[0]['emoticons']
