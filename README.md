@@ -60,3 +60,15 @@ make run-app
 docker build -t emoji-extractor:0.0.1 .
 docker run emoji-extractor:0.0.1
 ```
+
+### Running Tests
+
+```
+make pytest
+```
+
+### Running evals
+
+```
+make run-eval
+```

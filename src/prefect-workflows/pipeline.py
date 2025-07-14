@@ -188,7 +188,7 @@ def evaluate_registered_model():
         "python",
         eval_script,
         "--mapping1",
-        "data/processed/mapping.csv",
+        "data/raw/Mapping.csv",
         "--mapping2",
         "data/mock/mapping.csv",
         "--pred1",

@@ -5,7 +5,7 @@ from evidently import MulticlassClassification
 from evidently.presets import DataSummaryPreset, DataDriftPreset, ClassificationQuality
 
 @click.command()
-@click.option('--mapping1', default="data/processed/mapping.csv", help='Path to first mapping CSV.')
+@click.option('--mapping1', default="data/raw/Mapping.csv", help='Path to first mapping CSV.')
 @click.option('--mapping2', default="data/mock/mapping.csv", help='Path to second mapping CSV.')
 @click.option('--pred1', default="data/predictions/bert_train.csv", help='Path to first predictions CSV.')
 @click.option('--pred2', default="data/predictions/bert_mock.csv", help='Path to second predictions CSV.')

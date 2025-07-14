@@ -41,7 +41,7 @@ reset-workflow:
 	uv run awslocal s3 rm s3://emoji-predictor-bucket/tracking/ --recursive
 
 run-eval:
-	uv run python src/eval/eval.py 
+	export PYTHONPATH=.  && uv run python src/eval/eval.py 
 	open data/evidently/eval.html
 
 
