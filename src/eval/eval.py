@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import click
 from evidently import Dataset, DataDefinition, Report
@@ -38,8 +39,12 @@ def main(mapping1, mapping2, pred1, pred2, output):
     )
 
     my_eval = report.run(eval_data_1, eval_data_2)
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     my_eval.save_html(output)
     print(f"Evaluation report saved to {output}")
 
 if __name__ == "__main__":
+    print("Starting evaluation...")
     main()
+
+    

@@ -11,6 +11,7 @@ wheels/
 data/*
 !data/raw/
 !data/mock/
+!data/predictions/    
 service_account.json
 oauth_json.json
 mlruns
