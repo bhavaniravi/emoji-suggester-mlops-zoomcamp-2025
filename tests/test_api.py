@@ -11,6 +11,10 @@ def mock_pipeline(text):
     "src.serving.predict_app.get_best_model",
     new=lambda client, experiment, runs: (None, mock_pipeline),
 )
+@patch(
+    "src.serving.predict_app.get_local_pipeline",
+    new=lambda: mock_pipeline,
+)
 def test_predict():
     text = "I am happy"
     print(predict_app.predict(text))

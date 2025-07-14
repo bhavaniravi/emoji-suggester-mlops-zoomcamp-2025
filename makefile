@@ -7,9 +7,13 @@ lint:
 format:
 	uv run ruff format
 
-init:
+uv-setup:
 	uv venv
 	uv sync
+	uv sync --dev
+
+init:
+	make uv-setup
 	# moving data to s3
 	cd mlflow && docker-compose up -d && cd ..
 	cd localstack && docker-compose up -d && cd ..

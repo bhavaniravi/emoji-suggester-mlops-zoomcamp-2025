@@ -7,6 +7,15 @@ from transformers import (
     TextClassificationPipeline,
 )
 
+def get_local_pipeline():
+        output_dir = "models/bert_output"
+        model = DistilBertForSequenceClassification.from_pretrained(f"{output_dir}/model")
+        tokenizer = DistilBertTokenizerFast.from_pretrained(f"{output_dir}/tokenizer")
+        pipeline = TextClassificationPipeline(
+            model=model, tokenizer=tokenizer, top_k=1, task="text-classification"
+        )
+        return pipeline
+
 def predict(text, local=True):
     if not local:
         client = MlflowClient()
@@ -16,15 +25,11 @@ def predict(text, local=True):
         result = pipeline(text)[0]
     else:
         # Load the model and tokenizer from the local directory
-        output_dir = "models/bert_output"
-        model = DistilBertForSequenceClassification.from_pretrained(f"{output_dir}/model")
-        tokenizer = DistilBertTokenizerFast.from_pretrained(f"{output_dir}/tokenizer")
-        pipeline = TextClassificationPipeline(
-            model=model, tokenizer=tokenizer, top_k=1, task="text-classification"
-        )
-        result = pipeline(text)[0][0]
+        pipeline = get_local_pipeline()
+        result = pipeline(text)[0]
+        if isinstance(result, list):
+            result = result[0]
 
-    
     print (f"Prediction result: {result}")
     label = result["label"]
     score = result["score"]
@@ -34,8 +39,8 @@ def predict(text, local=True):
 # Streamlit app
 st.title("Emoji Predictor")
 st.write("Try texts like: 'I am happy', 'I am loved', ...")
-st.selectbox("Select a model", options=["Local Model", "MLflow Model(needs local training)"], index=0, key="model_choice")
-local = st.session_state.model_choice == "Local Model"
+option = st.selectbox("Select a model", options=["Local Model", "MLflow Model(needs local training)"], index=0, key="model_choice")
+local = option == "Local Model"
 
 text = st.text_input("Enter your text:")
 

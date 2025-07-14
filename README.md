@@ -18,11 +18,11 @@ An emoji predictor based off [hugging face emoji predictor dataset](https://www.
 
 ## Setup Guide
 
-## Requirements
+### Requirements
 
-You would need `python>=3.12` and `uv` in your machine to run these pipelines
-
-1. [Install UV](https://docs.astral.sh/uv/getting-started/installation/)
+1. `python>=3.12` and `uv` in your machine to train the mlmodels
+2. [Install UV](https://docs.astral.sh/uv/getting-started/installation/)
+3. If you want to run the final application you can choose the docker version 
 
 ### Local setup
 
