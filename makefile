@@ -43,3 +43,7 @@ reset-workflow:
 run-eval:
 	uv run python src/eval/eval.py 
 	open data/evidently/eval.html
+
+
+pytest:
+	export PYTHONPATH=. && uv run pytest 

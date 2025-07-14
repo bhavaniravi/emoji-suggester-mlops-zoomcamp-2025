@@ -28,4 +28,5 @@ dependencies = [
 dev = [
     "awscli>=1.40.26",
     "awscli-local[ver1]>=0.22.0",
+    "pytest>=8.4.1",
 ]

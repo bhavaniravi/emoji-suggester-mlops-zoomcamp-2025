@@ -36,10 +36,15 @@ Training will take sometime, the pipeline will
 2. Register the best model
 3. Run eval script using evidently
 
-Before starting the pipeline we need prefect server running parall
+Before starting the pipeline we need prefect server running parallel terminal
 
 ```
-make run-workflow
+make run-prefect
+```
+
+
+```
+make train
 ```
 
 ### Running the application
