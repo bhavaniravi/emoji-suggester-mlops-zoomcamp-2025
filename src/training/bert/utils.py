@@ -30,7 +30,7 @@ def get_best_model(client, experiment, runs, max=1):
             break
 
     if not pipeline:
-        raise Exception("no model found")
+        raise Exception("no model found, ensure you have the training pipeline run first")
 
     return run, pipeline
 
