@@ -28,7 +28,7 @@ build:
 
 
 serve:
-	uv run python src/serving/predict.py
+	export PYTHONPATH=. && uv run streamlit run src/serving/predict_app.py
 
 
 setup-all:

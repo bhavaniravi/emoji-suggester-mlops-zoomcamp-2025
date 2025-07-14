@@ -48,3 +48,10 @@ make run-workflow
 make build
 make run-app
 ```
+
+### Running the Dockerized app
+
+```
+docker build -t emoji-extractor:0.0.1 .
+docker run emoji-extractor:0.0.1
+```

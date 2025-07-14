@@ -1,6 +1,6 @@
 FROM python:3.12.10-slim
 
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && apt-get install -y curl make
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -14,4 +14,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY . .
 
-ENTRYPOINT [ "uv", "run", "python" ]
+EXPOSE 8501
+
+ENTRYPOINT ["make", "serve"]
