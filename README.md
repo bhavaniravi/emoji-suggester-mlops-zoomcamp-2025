@@ -42,6 +42,7 @@ Before starting the pipeline we need prefect server running parallel terminal
 make run-prefect
 ```
 
+Train the model
 
 ```
 make train
@@ -61,14 +62,27 @@ docker build -t emoji-extractor:0.0.1 .
 docker run emoji-extractor:0.0.1
 ```
 
+### Running evals
+
+Uses EvidentlyAI to generate model report based off mock data(production) and raw data(training)
+
+```
+make run-eval
+```
+
+## Development Scripts
+
 ### Running Tests
 
 ```
 make pytest
 ```
 
-### Running evals
+### Lint-fixes
+
+Uses `ruff` for formatting and lint-fixing
 
 ```
-make run-eval
+make lint-fix
+make format
 ```

@@ -18,7 +18,7 @@ def predict(text):
 
 
 if __name__ == "__main__":
-    print ("\n\n Welcome to emoji predictor! Try these texts I am happy, I am loved...")
+    print("\n\n Welcome to emoji predictor! Try these texts I am happy, I am loved...")
     text = None
     while text != "exit":
         text = input("Enter your text: ")

@@ -7,7 +7,6 @@ experiment = client.get_experiment_by_name("emoji-suggester-bert")
 runs = get_best_runs(client, experiment)
 
 
-
 def predict(text):
     best_run_id, pipeline = get_best_model(client, experiment, runs)
     result = pipeline(text)[0]

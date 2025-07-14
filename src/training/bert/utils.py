@@ -2,6 +2,7 @@ import mlflow
 import pandas as pd
 from functools import lru_cache
 
+
 def get_best_runs(client, experiment, max=10):
     runs = client.search_runs(
         experiment_ids=[experiment.experiment_id],  # or fetch the actual experiment ID
@@ -19,7 +20,7 @@ def get_best_model(client, experiment, runs, max=1):
         model = client.search_logged_models(
             experiment_ids=[run.info.experiment_id],
             filter_string="attributes.status = 'READY'",
-            order_by = [{"field_name": "metrics.accuracy", "ascending": False}],
+            order_by=[{"field_name": "metrics.accuracy", "ascending": False}],
             max_results=max,
         )
         if model:
@@ -33,18 +34,20 @@ def get_best_model(client, experiment, runs, max=1):
 
     return run, pipeline
 
+
 mapping = None
+
 
 @lru_cache(maxsize=None)
 def label_to_emoji(label) -> tuple:
-    if label.startswith('LABEL_'):
-        label = int(label.split('_')[1]) 
+    if label.startswith("LABEL_"):
+        label = int(label.split("_")[1])
     global mapping
     if mapping is None:
-        mapping = pd.read_csv('data/raw/Mapping.csv')
-    row = mapping[mapping['number'] == label]
+        mapping = pd.read_csv("data/raw/Mapping.csv")
+    row = mapping[mapping["number"] == label]
     if not row.empty:
-        emoji = row.iloc[0]['emoticons']
+        emoji = row.iloc[0]["emoticons"]
         return label, emoji
     else:
         return label, None
