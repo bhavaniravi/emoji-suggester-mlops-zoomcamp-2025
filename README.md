@@ -11,9 +11,10 @@ An emoji predictor based off [hugging face emoji predictor dataset](https://www.
 
 - Model - The distillBERT model is fine-tuned with the training data to do the prediction
 - Experiment Tracking - MLFlow
-- Workflow Orchestration - Airflow 3.0
+- Workflow Orchestration - Prefect
 - Model Deployment - Dockerized
 - Model Monitoring - EvidentlyAI
+- CI/CD - Github Actions
 
 ## Setup Guide
 
